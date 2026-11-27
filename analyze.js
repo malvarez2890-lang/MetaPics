@@ -30,24 +30,47 @@ const Analyze = (() => {
     };
   }
 
-  async function image(file) {
+  // Giro según la orientación EXIF (3: 180°, 6: 90°, 8: 270°)
+  const TURNS = { 3: 2, 6: 1, 8: 3 };
+
+  function render(bitmap, max, turns) {
+    const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * k)), h = Math.max(1, Math.round(bitmap.height * k));
+    const c = new OffscreenCanvas(turns % 2 ? h : w, turns % 2 ? w : h);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(turns * Math.PI / 2);
+    ctx.drawImage(bitmap, -w / 2, -h / 2, w, h);
+    return { c, ctx };
+  }
+
+  // Si la vista previa trae su propia orientación, el navegador ya la aplica
+  const turnsFor = (preview, exif) => preview.exif.orientation ? 0 : TURNS[exif.orientation] || 0;
+
+  // Imagen para el visor: el archivo mismo, o la vista previa derecha si es RAW
+  async function viewable(file, exif) {
+    if (!Raw.is(file.name)) return file;
+    const preview = await Raw.preview(file);
+    if (!preview) return null;
+    const turns = turnsFor(preview, exif);
+    if (!turns) return preview.blob;
+    const bitmap = await createImageBitmap(preview.blob);
+    const { c } = render(bitmap, Infinity, turns);
+    bitmap.close();
+    return c.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+  }
+
+  async function image(source, turns = 0) {
     let bitmap;
     try {
-      bitmap = await createImageBitmap(file);
+      bitmap = await createImageBitmap(source);
     } catch {
       return null; // formato que el navegador no decodifica (HEIC, RAW)
     }
-    const draw = max => {
-      const k = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-      const c = new OffscreenCanvas(Math.max(1, Math.round(bitmap.width * k)), Math.max(1, Math.round(bitmap.height * k)));
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(bitmap, 0, 0, c.width, c.height);
-      return { c, ctx };
-    };
-    const a = draw(ANALYSIS_SIZE);
+    const a = render(bitmap, ANALYSIS_SIZE, turns);
     const m = metrics(a.ctx.getImageData(0, 0, a.c.width, a.c.height).data, a.c.width, a.c.height);
-    const thumb = await draw(THUMB_SIZE).c.convertToBlob({ type: 'image/jpeg', quality: 0.75 });
-    const result = { ...m, thumb, width: bitmap.width, height: bitmap.height };
+    const thumb = await render(bitmap, THUMB_SIZE, turns).c.convertToBlob({ type: 'image/jpeg', quality: 0.75 });
+    const result = { ...m, thumb, width: turns % 2 ? bitmap.height : bitmap.width, height: turns % 2 ? bitmap.width : bitmap.height };
     bitmap.close();
     return result;
   }
@@ -80,14 +103,24 @@ const Analyze = (() => {
   }
 
   async function photo(file, key) {
+    // Al cambiar la forma de analizar se sube la versión para no reutilizar resultados viejos
+    key = `v2|${key}`;
     const cached = await cacheGet(key);
     if (cached) return cached;
-    const exif = await Exif.read(file);
-    const img = await image(file);
+    let exif = await Exif.read(file);
+    let img;
+    if (Raw.is(file.name)) {
+      const preview = await Raw.preview(file);
+      // Algunos formatos (Fuji RAF) solo exponen los datos dentro de la vista previa
+      if (preview && !exif.dateOriginal) exif = { ...preview.exif, ...exif };
+      img = preview ? await image(preview.blob, turnsFor(preview, exif)) : null;
+    } else {
+      img = await image(file);
+    }
     const result = { exif, img };
     cachePut(key, result);
     return result;
   }
 
-  return { photo, metrics };
+  return { photo, metrics, viewable };
 })();

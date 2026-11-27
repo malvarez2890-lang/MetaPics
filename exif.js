@@ -16,7 +16,8 @@ const Exif = (() => {
     const le = order === 0x4949;
     const u16 = o => view.getUint16(o, le);
     const u32 = o => view.getUint32(o, le);
-    if (u16(start + 2) !== 42) return false;
+    // 42 es TIFF estándar; los otros valores los usan Panasonic (RW2) y Olympus (ORF)
+    if (![42, 0x55, 0x4f52, 0x5352].includes(u16(start + 2))) return false;
     const seen = new Set();
 
     function value(type, count, pos) {
@@ -117,6 +118,11 @@ const Exif = (() => {
         if (ascii(view, o, 4) === 'EXIF') parseTiff(view, ascii(view, o + 8, 4) === 'Exif' ? o + 14 : o + 8, out);
         o += 8 + len + (len & 1);
       }
+    } else if (ascii(view, 4, 8) === 'ftypcrx ') {
+      // Canon CR3: los metadatos están en bloques CMT1 (cámara) y CMT2 (toma)
+      for (let i = 0; i + 12 < view.byteLength; i++) {
+        if (view.getUint8(i) === 0x43 && /^CMT[12]$/.test(ascii(view, i, 4))) parseTiff(view, i + 4, out);
+      }
     } else scan(view, out);
     return out;
   }
@@ -127,7 +133,7 @@ const Exif = (() => {
     try {
       data = parseBuffer(await file.slice(0, 512 * 1024).arrayBuffer());
       // En HEIC y RAW el bloque EXIF puede estar más adelante en el archivo
-      const needsAll = !data.dateOriginal && !data.model && (isContainer || /\.(tif|tiff|dng|cr2|nef|arw)$/i.test(file.name));
+      const needsAll = !data.dateOriginal && !data.model && (isContainer || (/\.(tif|tiff)$/i.test(file.name) || Raw.is(file.name)));
       if (needsAll && file.size > 512 * 1024) data = parseBuffer(await file.arrayBuffer());
     } catch (e) {
       console.warn('EXIF ilegible en', file.name, e);

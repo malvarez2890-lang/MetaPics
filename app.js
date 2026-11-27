@@ -1,11 +1,11 @@
 const $ = id => document.getElementById(id);
-const IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?|dng|cr2|nef|arw)$/i;
+const IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?|dng|cr2|cr3|nef|nrw|arw|sr2|raf|orf|rw2|pef|srw)$/i;
 const PAGE = 200;
 const DEFAULTS = { burn: 8, dark: 55, blur: 60 };
 
 const state = {
   photos: [], view: [], shown: PAGE, selected: new Set(), anchor: null, current: null,
-  filters: { quality: new Set(), slot: new Set(), meta: new Set(), mine: new Set() },
+  filters: { format: new Set(), quality: new Set(), slot: new Set(), meta: new Set(), mine: new Set() },
   limits: { ...DEFAULTS, ...load('limits') },
   marks: load('marks'),
   run: 0, busy: false, dest: null, log: []
@@ -37,14 +37,51 @@ async function* walk(dir, prefix) {
   }
 }
 
+// Panel de carga. Con fraction = null la barra queda en movimiento (total todavía desconocido).
+function showLoader(title, detail, fraction) {
+  $('loader').hidden = false;
+  $('loadTitle').textContent = title;
+  $('loadDetail').textContent = detail;
+  $('loadPct').textContent = fraction === null ? '' : `${Math.floor(100 * fraction)}%`;
+  if (fraction === null) $('progress').removeAttribute('value');
+  else $('progress').value = fraction;
+}
+
+function remaining(ms) {
+  const s = Math.ceil(ms / 1000);
+  return s < 60 ? `quedan unos ${s} s` : `quedan unos ${Math.ceil(s / 60)} min`;
+}
+
+function setBusy(busy) {
+  state.busy = busy;
+  $('btnOpen').disabled = $('wOpen').disabled = busy;
+  $('btnCsv').disabled = $('btnOrganize').disabled = busy || !state.photos.length;
+  if (!busy) $('loader').hidden = true;
+}
+
 async function loadDirectory(dir) {
+  const run = ++state.run;
   const entries = [];
-  state.root = dir;
-  $('status').textContent = 'Buscando fotos…';
-  for await (const e of walk(dir, dir.name)) {
-    entries.push(e);
-    if (entries.length % 200 === 0) $('status').textContent = `Buscando fotos… ${entries.length}`;
+  showWelcome(false);
+  setBusy(true);
+  $('status').textContent = 'Cargando carpeta…';
+  showLoader('Buscando fotos…', dir.name, null);
+  try {
+    for await (const e of walk(dir, dir.name)) {
+      if (run !== state.run) break;
+      entries.push(e);
+      if (entries.length % 50 === 0) showLoader('Buscando fotos…', `${entries.length} encontradas`, null);
+    }
+  } catch (e) {
+    setBusy(false);
+    throw e;
   }
+  if (run !== state.run) {
+    setBusy(false);
+    $('status').textContent = 'Carga detenida';
+    return;
+  }
+  state.root = dir;
   await loadEntries(entries);
 }
 
@@ -67,9 +104,10 @@ async function loadEntries(entries) {
   state.selected.clear();
   state.anchor = null;
   state.shown = PAGE;
-  state.busy = true;
-  $('progress').hidden = $('btnStop').hidden = false;
-  $('btnCsv').disabled = $('btnOrganize').disabled = true;
+  setBusy(true);
+  $('status').textContent = 'Cargando carpeta…';
+  showLoader(`Analizando ${entries.length} fotos…`, 'Preparando', 0);
+  const started = Date.now();
   let next = 0, done = 0, failed = 0, lastRender = 0;
 
   async function worker() {
@@ -86,18 +124,18 @@ async function loadEntries(entries) {
         console.warn('No se pudo leer', entry.path, e);
       }
       done++;
-      $('progress').value = done / entries.length;
-      $('status').textContent = `Analizando ${done} de ${entries.length}…`;
+      if (run !== state.run) return;
+      const elapsed = Date.now() - started;
+      const eta = elapsed > 3000 && done < entries.length ? ` · ${remaining(elapsed / done * (entries.length - done))}` : '';
+      showLoader(`Analizando ${entries.length} fotos…`, `${done} de ${entries.length}${eta} · ${entry.name}`, done / entries.length);
       if (Date.now() - lastRender > 1500) { lastRender = Date.now(); refresh(); }
     }
   }
   await Promise.all(Array.from({ length: 4 }, worker));
   const stopped = done < entries.length;
-  state.busy = false;
-  $('progress').hidden = $('btnStop').hidden = true;
+  setBusy(false);
   $('status').textContent = `${state.photos.length} fotos analizadas` +
     (failed ? ` · ${failed} no se pudieron leer` : '') + (stopped ? ' · análisis detenido' : '');
-  $('btnCsv').disabled = $('btnOrganize').disabled = !state.photos.length;
   fillCameras();
   refresh();
 }
@@ -166,7 +204,15 @@ function classify(p) {
   p.quality = p.flags[0];
 }
 
+function formatOf(name) {
+  if (Raw.is(name)) return 'RAW';
+  if (/\.jpe?g$/i.test(name)) return 'JPG';
+  if (/\.(heic|heif)$/i.test(name)) return 'HEIC';
+  return 'Otros';
+}
+
 const FILTERS = {
+  format: { box: 'fFormat', values: ['JPG', 'RAW', 'HEIC', 'Otros'], test: (p, v) => formatOf(p.name) === v },
   quality: { box: 'fQuality', values: ['Buena', 'Quemada', 'Oscura', 'Borrosa', 'Sin analizar'], test: (p, v) => p.flags.includes(v) },
   slot: { box: 'fSlot', values: ['Madrugada', 'Mañana', 'Tarde', 'Noche', 'Hora desconocida'], test: (p, v) => p.slot === v },
   meta: {
@@ -270,6 +316,7 @@ function formatDate(p) {
 function card(p) {
   const thumb = el('div', { className: 'thumb' }, p.url ? el('img', { src: p.url, loading: 'lazy', alt: p.name }) : 'Sin vista previa');
   const tags = p.flags.map(f => el('span', { className: `tag ${f.toLowerCase()}`, textContent: f }));
+  if (Raw.is(p.name)) tags.unshift(el('span', { className: 'tag raw', textContent: 'RAW' }));
   if (p.stars) tags.push(el('span', { className: 'tag', textContent: '★'.repeat(p.stars) }));
   if (p.discard) tags.push(el('span', { className: 'tag', textContent: 'Descartada' }));
   const node = el('div', { className: `card${state.selected.has(p) ? ' sel' : ''}${p.discard ? ' discard' : ''}`, title: p.path },
@@ -336,8 +383,10 @@ async function openViewer(p) {
   if ($('vImg').src) URL.revokeObjectURL($('vImg').src);
   $('vImg').hidden = !p.url;
   $('vNoImg').hidden = !!p.url;
-  if (p.url) $('vImg').src = URL.createObjectURL(file);
-  else $('vImg').removeAttribute('src');
+  $('vImg').removeAttribute('src');
+  if (!p.url) return;
+  const source = await Analyze.viewable(file, p.exif);
+  if (state.current === p && source) $('vImg').src = URL.createObjectURL(source);
 }
 
 function renderInfo() {
@@ -352,6 +401,7 @@ function renderInfo() {
     ['Dimensiones', p.width && `${p.width} × ${p.height}`], ['Tamaño', `${(p.size / 1048576).toFixed(2)} MB`],
     ['GPS', p.gps && p.gps.map(n => n.toFixed(5)).join(', ')], ['Software', e.software],
     ['Metadatos', p.metaLevel], ['Calidad', p.flags.join(', ')],
+    ['Aviso', Raw.is(p.name) && p.url ? 'RAW: la imagen y la calidad salen de la vista previa de la cámara' : null],
     ['Puntaje', p.score >= 0 ? `${p.score}/100` : null],
     ['% quemado', p.burn?.toFixed(1)], ['Brillo medio', p.light?.toFixed(0)], ['Nitidez', p.sharp?.toFixed(0)]
   ];

@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MetaPics · Ordená tus fotos</title>
 <meta name="description" content="Ordená tus fotos por fecha, hora y calidad usando sus metadatos. Todo se procesa en tu computadora.">
-<link rel="icon" href="logo.svg?v=3" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="icon" href="logo.svg?v=4" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body class="on-welcome">
 
 <div id="welcome">
   <div class="glow g1"></div><div class="glow g2"></div>
   <div class="welcome-inner">
-    <img class="hero-logo rise" style="--d:0" src="logo.svg?v=3" width="104" height="104" alt="">
+    <img class="hero-logo rise" style="--d:0" src="logo.svg?v=4" width="104" height="104" alt="">
     <h1 class="brand rise" style="--d:1">Meta<span>Pics</span></h1>
     <p class="tagline rise" style="--d:2">Tus fotos, ordenadas en minutos</p>
     <p class="lead rise" style="--d:3">Leé los metadatos, detectá las fotos quemadas, oscuras o borrosas y armá carpetas automáticamente.</p>
@@ -27,18 +27,17 @@
       <li class="rise" style="--d:6"><b>2</b><h3>Revisá y clasificá</h3><p>Filtrá por calidad, hora, fecha o cámara y puntuá con estrellas.</p></li>
       <li class="rise" style="--d:7"><b>3</b><h3>Ordená en carpetas</h3><p>Mirá la vista previa y después copiá o mové.</p></li>
     </ol>
+    <p class="privacy rise" style="--d:8">📷 Para celulares y cámaras réflex: JPG, PNG, HEIC y RAW (NEF, CR2, CR3, ARW, DNG, RAF, ORF, RW2 y más).</p>
     <p class="privacy rise" style="--d:8">🔒 Tus fotos no se suben a internet: todo ocurre en tu computadora. Recomendado: Chrome o Edge.</p>
   </div>
 </div>
 
 <header>
   <button id="btnHome" class="home" title="Volver al inicio">
-    <img src="logo.svg?v=3" width="36" height="36" alt="">
+    <img src="logo.svg?v=4" width="36" height="36" alt="">
     <span><strong>MetaPics</strong><small>Organizador de fotos</small></span>
   </button>
   <span id="status">Elegí una carpeta para empezar.</span>
-  <progress id="progress" max="1" value="0" hidden></progress>
-  <button id="btnStop" hidden>Detener</button>
   <button id="btnOpen">Abrir carpeta</button>
   <label class="btn" title="Para navegadores sin acceso a carpetas: solo permite ver y exportar">
     Solo lectura<input id="fallback" type="file" webkitdirectory multiple hidden>
@@ -68,6 +67,11 @@
       <label class="check"><input type="checkbox" id="desc"> De mayor a menor</label>
     </section>
 
+    <section>
+      <h2>Formato</h2>
+      <p class="sub">Tipo de archivo</p>
+      <div id="fFormat" class="chips"></div>
+    </section>
     <section>
       <h2>Calidad de imagen</h2>
       <p class="sub">Estimada según luz y nitidez</p>
@@ -120,6 +124,17 @@
   </aside>
 
   <div id="content">
+    <div id="loader" hidden>
+      <div class="loader-top">
+        <div>
+          <h3 id="loadTitle"></h3>
+          <p id="loadDetail"></p>
+        </div>
+        <strong id="loadPct"></strong>
+        <button id="btnStop">Detener</button>
+      </div>
+      <progress id="progress" max="1" aria-labelledby="loadTitle"></progress>
+    </div>
     <div class="title">
       <h2>Tus fotos</h2>
       <p id="count">0 fotos</p>
@@ -130,7 +145,7 @@
       <span class="hint">Clic: seleccionar · Shift+clic: rango · Doble clic: ampliar · 1-5: estrellas · 0: quitar · X: descartar</span>
     </div>
     <div id="empty" hidden>
-      <img src="logo.svg?v=3" width="72" height="72" alt="">
+      <img src="logo.svg?v=4" width="72" height="72" alt="">
       <h3 id="emptyTitle"></h3>
       <p id="emptyText"></p>
     </div>
@@ -203,9 +218,10 @@
   </div>
 </dialog>
 
-<script src="exif.js?v=3"></script>
-<script src="analyze.js?v=3"></script>
-<script src="organize.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="exif.js?v=4"></script>
+<script src="raw.js?v=4"></script>
+<script src="analyze.js?v=4"></script>
+<script src="organize.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
