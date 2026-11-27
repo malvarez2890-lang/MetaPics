@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organizador de fotos</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Organizador de fotos</h1>
+  <button id="btnOpen" class="primary">Abrir carpeta de fotos</button>
+  <label class="btn" title="Para navegadores sin acceso a carpetas: solo permite ver y exportar">
+    Modo solo lectura<input id="fallback" type="file" webkitdirectory multiple hidden>
+  </label>
+  <span id="status">Elegí una carpeta para empezar. Tus fotos no salen de tu computadora.</span>
+  <progress id="progress" max="1" value="0" hidden></progress>
+  <button id="btnStop" hidden>Detener</button>
+  <button id="btnCsv" disabled>Exportar CSV</button>
+  <button id="btnOrganize" class="primary" disabled>Ordenar en carpetas…</button>
+</header>
+
+<main>
+  <aside>
+    <section>
+      <h2>Ordenar por</h2>
+      <select id="sort">
+        <option value="date">Fecha de toma</option>
+        <option value="hour">Hora del día</option>
+        <option value="score">Calidad (puntaje)</option>
+        <option value="sharp">Nitidez</option>
+        <option value="burn">% quemado</option>
+        <option value="light">Brillo</option>
+        <option value="stars">Estrellas</option>
+        <option value="camera">Cámara</option>
+        <option value="iso">ISO</option>
+        <option value="size">Tamaño de archivo</option>
+        <option value="name">Nombre</option>
+      </select>
+      <label class="check"><input type="checkbox" id="desc"> Descendente</label>
+    </section>
+
+    <section><h2>Calidad de imagen</h2><div id="fQuality" class="chips"></div></section>
+    <section>
+      <h2>Hora en que se sacó</h2>
+      <div id="hourChart" title="Clic en una barra para filtrar esa hora"></div>
+      <div class="range">
+        De <input type="number" id="hFrom" min="0" max="23" value="0">
+        a <input type="number" id="hTo" min="0" max="23" value="23"> h
+      </div>
+      <div id="fSlot" class="chips"></div>
+    </section>
+    <section>
+      <h2>Fechas</h2>
+      <div class="range">Desde <input type="date" id="dFrom"></div>
+      <div class="range">Hasta <input type="date" id="dTo"></div>
+    </section>
+    <section><h2>Metadatos</h2><div id="fMeta" class="chips"></div></section>
+    <section><h2>Cámara</h2><select id="fCamera"></select></section>
+    <section><h2>Mi clasificación</h2><div id="fMine" class="chips"></div></section>
+
+    <section>
+      <h2>Sensibilidad</h2>
+      <label>Quemada si supera <b id="vBurn"></b>% de blanco puro
+        <input type="range" id="tBurn" min="1" max="40" step="1"></label>
+      <label>Oscura si el brillo medio es menor a <b id="vDark"></b>
+        <input type="range" id="tDark" min="10" max="110" step="1"></label>
+      <label>Borrosa si la nitidez es menor a <b id="vBlur"></b>
+        <input type="range" id="tBlur" min="5" max="400" step="5"></label>
+    </section>
+    <button id="btnClear">Quitar filtros</button>
+  </aside>
+
+  <div id="content">
+    <div id="toolbar">
+      <span id="count">0 fotos</span>
+      <button id="btnSelAll">Seleccionar filtradas</button>
+      <button id="btnSelNone">Deseleccionar</button>
+      <span class="hint">Clic: seleccionar · Shift+clic: rango · Doble clic: ver detalle · Teclas 1-5: estrellas · 0: sin estrellas · X: descartar</span>
+    </div>
+    <div id="grid"></div>
+    <button id="btnMore" hidden>Mostrar más</button>
+  </div>
+</main>
+
+<dialog id="viewer">
+  <div class="viewer-body">
+    <div class="viewer-img"><img id="vImg" alt=""><p id="vNoImg" hidden>Este formato no se puede previsualizar en el navegador.</p></div>
+    <div class="viewer-info">
+      <h3 id="vName"></h3>
+      <div id="vStars"></div>
+      <table id="vTable"></table>
+      <div class="row">
+        <button id="vPrev">← Anterior</button>
+        <button id="vNext">Siguiente →</button>
+        <button id="vClose">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="organizer">
+  <h3>Ordenar en carpetas</h3>
+  <label>Esquema predefinido
+    <select id="oPreset">
+      <option value="{año}/{mes}">Año / Mes</option>
+      <option value="{año}/{año}-{mes}-{dia}">Año / Día</option>
+      <option value="{año}/{mes}/{franja}">Año / Mes / Momento del día</option>
+      <option value="{calidad}/{año}-{mes}">Calidad / Año-Mes</option>
+      <option value="{camara}/{año}">Cámara / Año</option>
+      <option value="{estrellas}">Por estrellas</option>
+      <option value="{metadatos}/{año}">Por calidad de metadatos / Año</option>
+    </select>
+  </label>
+  <label>Estructura (editable)
+    <input type="text" id="oTemplate">
+  </label>
+  <p class="hint">Variables: {año} {mes} {dia} {hora} {franja} {calidad} {camara} {estrellas} {metadatos}. La barra / crea subcarpetas.</p>
+  <label>Qué fotos <select id="oScope"></select></label>
+  <label class="check"><input type="checkbox" id="oDiscard" checked> Enviar las descartadas a la carpeta "Descartadas"</label>
+  <label class="check"><input type="checkbox" id="oRename"> Renombrar con fecha y hora (2024-03-15_14-30-05_nombre.jpg)</label>
+  <fieldset>
+    <label class="check"><input type="radio" name="mode" value="copy" checked> Copiar (los originales quedan intactos)</label>
+    <label class="check"><input type="radio" name="mode" value="move"> Mover (quita el original después de verificar la copia)</label>
+  </fieldset>
+  <div class="row">
+    <button id="oDest">Elegir carpeta destino…</button>
+    <span id="oDestName">Sin elegir</span>
+  </div>
+  <h4>Vista previa</h4>
+  <pre id="oPreview"></pre>
+  <p id="oResult"></p>
+  <div class="row">
+    <button id="oRun" class="primary" disabled>Ejecutar</button>
+    <button id="oLog" hidden>Descargar registro</button>
+    <button id="oClose">Cerrar</button>
+  </div>
+</dialog>
+
+<script src="exif.js"></script>
+<script src="analyze.js"></script>
+<script src="organize.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
