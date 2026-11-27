@@ -3,28 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Organizador de fotos</title>
+<title>MetaPics · Ordená tus fotos</title>
+<meta name="description" content="Ordená tus fotos por fecha, hora y calidad usando sus metadatos. Todo se procesa en tu computadora.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="on-welcome">
+
+<div id="welcome">
+  <div class="glow g1"></div><div class="glow g2"></div>
+  <div class="welcome-inner">
+    <img class="hero-logo rise" style="--d:0" src="logo.svg" alt="">
+    <h1 class="brand rise" style="--d:1">Meta<span>Pics</span></h1>
+    <p class="tagline rise" style="--d:2">Tus fotos, ordenadas en minutos</p>
+    <p class="lead rise" style="--d:3">Leé los metadatos, detectá las fotos quemadas, oscuras o borrosas y armá carpetas automáticamente.</p>
+    <div class="cta rise" style="--d:4">
+      <button id="wOpen" class="primary big">Abrir carpeta de fotos</button>
+      <button id="wBack" class="big" hidden>Volver a mis fotos →</button>
+      <label class="link" for="fallback">o usar el modo solo lectura</label>
+    </div>
+    <ol class="steps">
+      <li class="rise" style="--d:5"><b>1</b><h3>Elegí una carpeta</h3><p>Se leen también las subcarpetas.</p></li>
+      <li class="rise" style="--d:6"><b>2</b><h3>Revisá y clasificá</h3><p>Filtrá por calidad, hora, fecha o cámara y puntuá con estrellas.</p></li>
+      <li class="rise" style="--d:7"><b>3</b><h3>Ordená en carpetas</h3><p>Mirá la vista previa y después copiá o mové.</p></li>
+    </ol>
+    <p class="privacy rise" style="--d:8">🔒 Tus fotos no se suben a internet: todo ocurre en tu computadora. Recomendado: Chrome o Edge.</p>
+  </div>
+</div>
+
 <header>
-  <h1>Organizador de fotos</h1>
-  <button id="btnOpen" class="primary">Abrir carpeta de fotos</button>
-  <label class="btn" title="Para navegadores sin acceso a carpetas: solo permite ver y exportar">
-    Modo solo lectura<input id="fallback" type="file" webkitdirectory multiple hidden>
-  </label>
-  <span id="status">Elegí una carpeta para empezar. Tus fotos no salen de tu computadora.</span>
+  <button id="btnHome" class="home" title="Volver al inicio">
+    <img src="logo.svg" alt="">
+    <span><strong>MetaPics</strong><small>Organizador de fotos</small></span>
+  </button>
+  <span id="status">Elegí una carpeta para empezar.</span>
   <progress id="progress" max="1" value="0" hidden></progress>
   <button id="btnStop" hidden>Detener</button>
-  <button id="btnCsv" disabled>Exportar CSV</button>
+  <button id="btnOpen">Abrir carpeta</button>
+  <label class="btn" title="Para navegadores sin acceso a carpetas: solo permite ver y exportar">
+    Solo lectura<input id="fallback" type="file" webkitdirectory multiple hidden>
+  </label>
+  <button id="btnCsv" disabled title="Descarga una planilla con los datos de las fotos filtradas">Exportar CSV</button>
   <button id="btnOrganize" class="primary" disabled>Ordenar en carpetas…</button>
 </header>
 
 <main>
   <aside>
     <section>
-      <h2>Ordenar por</h2>
-      <select id="sort">
+      <h2>Ordenar</h2>
+      <p class="sub">En qué orden se muestran las fotos</p>
+      <select id="sort" aria-label="Ordenar por">
         <option value="date">Fecha de toma</option>
         <option value="hour">Hora del día</option>
         <option value="score">Calidad (puntaje)</option>
@@ -37,46 +65,74 @@
         <option value="size">Tamaño de archivo</option>
         <option value="name">Nombre</option>
       </select>
-      <label class="check"><input type="checkbox" id="desc"> Descendente</label>
+      <label class="check"><input type="checkbox" id="desc"> De mayor a menor</label>
     </section>
 
-    <section><h2>Calidad de imagen</h2><div id="fQuality" class="chips"></div></section>
     <section>
-      <h2>Hora en que se sacó</h2>
-      <div id="hourChart" title="Clic en una barra para filtrar esa hora"></div>
+      <h2>Calidad de imagen</h2>
+      <p class="sub">Estimada según luz y nitidez</p>
+      <div id="fQuality" class="chips"></div>
+    </section>
+    <section>
+      <h2>Hora de la toma</h2>
+      <p class="sub">Tocá una barra para ver solo esa hora</p>
+      <div id="hourChart"></div>
+      <div class="axis"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>23 h</span></div>
       <div class="range">
-        De <input type="number" id="hFrom" min="0" max="23" value="0">
-        a <input type="number" id="hTo" min="0" max="23" value="23"> h
+        De <input type="number" id="hFrom" min="0" max="23" value="0" aria-label="Desde la hora">
+        a <input type="number" id="hTo" min="0" max="23" value="23" aria-label="Hasta la hora"> h
       </div>
       <div id="fSlot" class="chips"></div>
     </section>
     <section>
       <h2>Fechas</h2>
+      <p class="sub">Limitá a un período</p>
       <div class="range">Desde <input type="date" id="dFrom"></div>
       <div class="range">Hasta <input type="date" id="dTo"></div>
     </section>
-    <section><h2>Metadatos</h2><div id="fMeta" class="chips"></div></section>
-    <section><h2>Cámara</h2><select id="fCamera"></select></section>
-    <section><h2>Mi clasificación</h2><div id="fMine" class="chips"></div></section>
-
     <section>
-      <h2>Sensibilidad</h2>
+      <h2>Datos de la foto</h2>
+      <p class="sub">Qué metadatos tiene guardados</p>
+      <div id="fMeta" class="chips"></div>
+    </section>
+    <section>
+      <h2>Cámara</h2>
+      <p class="sub">Con qué equipo se sacó</p>
+      <select id="fCamera" aria-label="Cámara"></select>
+    </section>
+    <section>
+      <h2>Mi clasificación</h2>
+      <p class="sub">Tus estrellas y descartes</p>
+      <div id="fMine" class="chips"></div>
+    </section>
+
+    <details>
+      <summary>Ajustar detección</summary>
+      <p class="sub">Cambialo si una foto queda mal clasificada</p>
       <label>Quemada si supera <b id="vBurn"></b>% de blanco puro
         <input type="range" id="tBurn" min="1" max="40" step="1"></label>
       <label>Oscura si el brillo medio es menor a <b id="vDark"></b>
         <input type="range" id="tDark" min="10" max="110" step="1"></label>
       <label>Borrosa si la nitidez es menor a <b id="vBlur"></b>
         <input type="range" id="tBlur" min="5" max="400" step="5"></label>
-    </section>
-    <button id="btnClear">Quitar filtros</button>
+    </details>
+    <button id="btnClear">Quitar todos los filtros</button>
   </aside>
 
   <div id="content">
+    <div class="title">
+      <h2>Tus fotos</h2>
+      <p id="count">0 fotos</p>
+    </div>
     <div id="toolbar">
-      <span id="count">0 fotos</span>
-      <button id="btnSelAll">Seleccionar filtradas</button>
+      <button id="btnSelAll">Seleccionar las que se ven</button>
       <button id="btnSelNone">Deseleccionar</button>
-      <span class="hint">Clic: seleccionar · Shift+clic: rango · Doble clic: ver detalle · Teclas 1-5: estrellas · 0: sin estrellas · X: descartar</span>
+      <span class="hint">Clic: seleccionar · Shift+clic: rango · Doble clic: ampliar · 1-5: estrellas · 0: quitar · X: descartar</span>
+    </div>
+    <div id="empty" hidden>
+      <img src="logo.svg" alt="">
+      <h3 id="emptyTitle"></h3>
+      <p id="emptyText"></p>
     </div>
     <div id="grid"></div>
     <button id="btnMore" hidden>Mostrar más</button>
@@ -88,7 +144,9 @@
     <div class="viewer-img"><img id="vImg" alt=""><p id="vNoImg" hidden>Este formato no se puede previsualizar en el navegador.</p></div>
     <div class="viewer-info">
       <h3 id="vName"></h3>
+      <p class="sub">Puntuá la foto o descartala</p>
       <div id="vStars"></div>
+      <h4>Información de la foto</h4>
       <table id="vTable"></table>
       <div class="row">
         <button id="vPrev">← Anterior</button>
@@ -101,6 +159,9 @@
 
 <dialog id="organizer">
   <h3>Ordenar en carpetas</h3>
+  <p class="sub">Nada cambia hasta que toques "Ejecutar"</p>
+
+  <h4>1. Cómo agrupar</h4>
   <label>Esquema predefinido
     <select id="oPreset">
       <option value="{año}/{mes}">Año / Mes</option>
@@ -115,10 +176,14 @@
   <label>Estructura (editable)
     <input type="text" id="oTemplate">
   </label>
-  <p class="hint">Variables: {año} {mes} {dia} {hora} {franja} {calidad} {camara} {estrellas} {metadatos}. La barra / crea subcarpetas.</p>
-  <label>Qué fotos <select id="oScope"></select></label>
+  <p class="hint-block">Variables: {año} {mes} {dia} {hora} {franja} {calidad} {camara} {estrellas} {metadatos}. La barra / crea subcarpetas.</p>
+
+  <h4>2. Qué fotos</h4>
+  <label>Incluir <select id="oScope"></select></label>
   <label class="check"><input type="checkbox" id="oDiscard" checked> Enviar las descartadas a la carpeta "Descartadas"</label>
   <label class="check"><input type="checkbox" id="oRename"> Renombrar con fecha y hora (2024-03-15_14-30-05_nombre.jpg)</label>
+
+  <h4>3. Destino</h4>
   <fieldset>
     <label class="check"><input type="radio" name="mode" value="copy" checked> Copiar (los originales quedan intactos)</label>
     <label class="check"><input type="radio" name="mode" value="move"> Mover (quita el original después de verificar la copia)</label>
@@ -127,6 +192,7 @@
     <button id="oDest">Elegir carpeta destino…</button>
     <span id="oDestName">Sin elegir</span>
   </div>
+
   <h4>Vista previa</h4>
   <pre id="oPreview"></pre>
   <p id="oResult"></p>

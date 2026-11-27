@@ -48,7 +48,18 @@ async function loadDirectory(dir) {
   await loadEntries(entries);
 }
 
+// Pantalla de entrada: mientras está visible, la aplicación de atrás no recibe foco ni teclas
+function showWelcome(visible) {
+  document.body.classList.toggle('on-welcome', visible);
+  document.querySelector('header').inert = visible;
+  document.querySelector('main').inert = visible;
+  $('welcome').inert = !visible;
+  $('wBack').hidden = !state.photos.length;
+}
+
 async function loadEntries(entries) {
+  showWelcome(false);
+  state.animate = true;
   const run = ++state.run;
   $('grid').replaceChildren();
   state.photos.forEach(p => p.url && URL.revokeObjectURL(p.url));
@@ -265,7 +276,7 @@ function card(p) {
     thumb,
     el('div', { className: 'meta' },
       el('div', { className: 'name', textContent: p.name }),
-      el('div', { className: 'sub', textContent: formatDate(p) }),
+      el('div', { className: 'date', textContent: formatDate(p) }),
       ...tags));
   node.onclick = e => select(p, e.shiftKey);
   node.ondblclick = () => openViewer(p);
@@ -274,7 +285,16 @@ function card(p) {
 }
 
 function renderGrid() {
-  $('grid').replaceChildren(...state.view.slice(0, state.shown).map(card));
+  const cards = state.view.slice(0, state.shown).map(card);
+  // La animación de entrada se usa una sola vez por carga, no en cada cambio de filtro
+  if (state.animate && cards.length) {
+    cards.forEach((c, i) => { c.classList.add('enter'); c.style.setProperty('--d', Math.min(i, 20)); c.onanimationend = () => c.classList.remove('enter'); });
+    state.animate = false;
+  }
+  $('grid').replaceChildren(...cards);
+  $('empty').hidden = !!state.view.length;
+  $('emptyTitle').textContent = state.photos.length ? 'Ninguna foto coincide' : state.busy ? 'Analizando tus fotos…' : 'Todavía no hay fotos';
+  $('emptyText').textContent = state.photos.length ? 'Probá quitando algún filtro.' : state.busy ? 'Van a ir apareciendo acá.' : 'Tocá "Abrir carpeta" para empezar.';
   $('btnMore').hidden = state.view.length <= state.shown;
   updateCount();
 }
@@ -521,8 +541,13 @@ $('oClose').onclick = () => $('organizer').close();
 $('organizer').oncancel = e => { if (state.busy) e.preventDefault(); };
 $('oLog').onclick = () => downloadCsv('registro-ordenado.csv', state.log);
 
+$('wOpen').onclick = () => $('btnOpen').click();
+$('wBack').onclick = () => showWelcome(false);
+$('btnHome').onclick = () => showWelcome(true);
+
 document.addEventListener('keydown', e => {
-  if ($('organizer').open || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.body.classList.contains('on-welcome')) return;
+  if ($('organizer').open ||e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   const viewing = $('viewer').open;
   if (viewing && e.key === 'ArrowLeft') return step(-1);
@@ -540,3 +565,4 @@ document.addEventListener('keydown', e => {
 window.addEventListener('beforeunload', e => { if (state.busy) e.preventDefault(); });
 
 refresh();
+showWelcome(true);
