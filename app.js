@@ -152,7 +152,7 @@ function toDegrees(v, ref) {
   return (ref === 'S' || ref === 'W') ? -d : d;
 }
 
-function buildPhoto(entry, file, { exif, img }) {
+function buildPhoto(entry, file, { exif, img, reason }) {
   const taken = parseDate(exif.dateOriginal) || parseDate(exif.dateDigitized);
   const lat = toDegrees(exif.lat, exif.latRef), lon = toDegrees(exif.lon, exif.lonRef);
   const make = exif.make || '', model = exif.model || '';
@@ -163,7 +163,7 @@ function buildPhoto(entry, file, { exif, img }) {
   const markKey = `${file.name}|${file.size}`;
   const mark = state.marks[markKey] || {};
   return {
-    ...entry, exif, camera, metaLevel, markKey,
+    ...entry, exif, camera, metaLevel, markKey, reason,
     size: file.size, file: entry.file,
     // Sin fecha EXIF se usa la del archivo, y queda señalado como "estimada"
     date: taken || new Date(file.lastModified),
@@ -401,6 +401,7 @@ function renderInfo() {
     ['Dimensiones', p.width && `${p.width} × ${p.height}`], ['Tamaño', `${(p.size / 1048576).toFixed(2)} MB`],
     ['GPS', p.gps && p.gps.map(n => n.toFixed(5)).join(', ')], ['Software', e.software],
     ['Metadatos', p.metaLevel], ['Calidad', p.flags.join(', ')],
+    ['Sin análisis porque', p.reason],
     ['Aviso', Raw.is(p.name) && p.url ? 'RAW: la imagen y la calidad salen de la vista previa de la cámara' : null],
     ['Puntaje', p.score >= 0 ? `${p.score}/100` : null],
     ['% quemado', p.burn?.toFixed(1)], ['Brillo medio', p.light?.toFixed(0)], ['Nitidez', p.sharp?.toFixed(0)]

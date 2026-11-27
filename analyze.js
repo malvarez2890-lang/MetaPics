@@ -50,14 +50,15 @@ const Analyze = (() => {
   // Imagen para el visor: el archivo mismo, o la vista previa derecha si es RAW
   async function viewable(file, exif) {
     if (!Raw.is(file.name)) return file;
-    const preview = await Raw.preview(file);
-    if (!preview) return null;
-    const turns = turnsFor(preview, exif);
-    if (!turns) return preview.blob;
-    const bitmap = await createImageBitmap(preview.blob);
-    const { c } = render(bitmap, Infinity, turns);
-    bitmap.close();
-    return c.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    for (const preview of await Raw.previews(file)) {
+      let bitmap;
+      try { bitmap = await createImageBitmap(preview.blob); } catch { continue; }
+      const turns = turnsFor(preview, exif);
+      const result = turns ? await render(bitmap, Infinity, turns).c.convertToBlob({ type: 'image/jpeg', quality: 0.92 }) : preview.blob;
+      bitmap.close();
+      return result;
+    }
+    return null;
   }
 
   async function image(source, turns = 0) {
@@ -104,21 +105,27 @@ const Analyze = (() => {
 
   async function photo(file, key) {
     // Al cambiar la forma de analizar se sube la versión para no reutilizar resultados viejos
-    key = `v2|${key}`;
+    key = `v3|${key}`;
     const cached = await cacheGet(key);
     if (cached) return cached;
     let exif = await Exif.read(file);
-    let img;
+    let img = null, reason = null;
     if (Raw.is(file.name)) {
-      const preview = await Raw.preview(file);
+      const previews = await Raw.previews(file);
       // Algunos formatos (Fuji RAF) solo exponen los datos dentro de la vista previa
-      if (preview && !exif.dateOriginal) exif = { ...preview.exif, ...exif };
-      img = preview ? await image(preview.blob, turnsFor(preview, exif)) : null;
+      if (previews[0] && !exif.dateOriginal) exif = { ...previews[0].exif, ...exif };
+      for (const preview of previews) {
+        img = await image(preview.blob, turnsFor(preview, exif));
+        if (img) break;
+      }
+      if (!img) reason = previews.length ? 'El navegador no pudo abrir las imágenes que trae el RAW' : 'No se encontró una vista previa dentro del RAW';
     } else {
       img = await image(file);
+      if (!img) reason = 'El navegador no puede abrir este archivo';
     }
-    const result = { exif, img };
-    cachePut(key, result);
+    const result = { exif, img, reason };
+    // Los fallos no se guardan: pueden ser pasajeros (falta de memoria) y se reintentan al reabrir
+    if (img) cachePut(key, result);
     return result;
   }
 

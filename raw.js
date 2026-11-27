@@ -22,23 +22,23 @@ const Raw = (() => {
     return null;
   }
 
-  // Devuelve la vista previa más grande: { blob, width, height, exif } o null
-  async function preview(file) {
+  // Devuelve las imágenes embebidas, de mayor a menor: [{ blob, width, height, exif }]
+  async function previews(file) {
     const u = new Uint8Array(await file.arrayBuffer());
-    let best = null;
+    const found = [];
     for (let i = u.indexOf(0xff); i !== -1; i = u.indexOf(0xff, i + 1)) {
       if (u[i + 1] !== 0xd8 || u[i + 2] !== 0xff) continue;
       const size = jpegSize(u, i);
-      if (size && (!best || size.width * size.height > best.width * best.height)) best = { offset: i, ...size };
+      if (size && size.width && size.height) found.push({ offset: i, ...size });
     }
-    if (!best) return null;
-    return {
-      blob: file.slice(best.offset, file.size, 'image/jpeg'),
-      width: best.width,
-      height: best.height,
-      exif: Exif.parseBuffer(u.slice(best.offset, best.offset + 512 * 1024).buffer)
-    };
+    // Se devuelven varias: si la más grande está dañada o es un falso positivo, se usa la siguiente
+    return found.sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 6).map(({ offset, width, height }) => ({
+      blob: file.slice(offset, file.size, 'image/jpeg'),
+      width,
+      height,
+      exif: Exif.parseBuffer(u.slice(offset, offset + 512 * 1024).buffer)
+    }));
   }
 
-  return { is, preview };
+  return { is, previews };
 })();
