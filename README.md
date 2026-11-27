@@ -16,5 +16,6 @@ Empezá probando con una carpeta chica y en modo **Copiar**.
 - HEIC y TIFF: se intentan leer los metadatos, pero normalmente el navegador no puede mostrarlos ni analizarlos.
 - Las fotos sin fecha de toma (por ejemplo, las de WhatsApp) van a "Sin fecha" al ordenar por fecha.
 - Las copias conservan los metadatos EXIF, pero la fecha de modificación del archivo pasa a ser la de la copia.
+- ExifTool (https://exiftool.org, de Phil Harvey) está incluido en la carpeta `exiftool/`. Se usa para "Ver todos los metadatos" y como respaldo cuando una imagen no se puede abrir. Descarga unos 25 MB la primera vez, corre en tu computadora y solo funciona desde la web (no abriendo `index.html` con doble clic).
 - No se procesan videos ni archivos asociados (.xmp, .aae).
 - Las estrellas y descartes se guardan en el navegador (no dentro de la foto) y se reconocen por nombre y tamaño.

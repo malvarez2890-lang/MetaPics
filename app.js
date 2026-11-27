@@ -376,6 +376,8 @@ function mark(photos, change) {
 
 async function openViewer(p) {
   state.current = p;
+  $('vAll').replaceChildren();
+  $('vAllBtn').disabled = false;
   if (!$('viewer').open) $('viewer').showModal();
   renderInfo();
   const file = p.file || await p.handle.getFile();
@@ -425,6 +427,29 @@ function step(delta) {
   const i = state.view.indexOf(state.current);
   const next = state.view[i < 0 ? 0 : i + delta];
   if (next) openViewer(next);
+}
+
+// Todos los metadatos de la foto abierta, leídos con ExifTool
+async function showAllMetadata() {
+  const p = state.current;
+  const note = text => $('vAll').replaceChildren(el('p', { className: 'sub', textContent: text }));
+  $('vAllBtn').disabled = true;
+  note('Leyendo con ExifTool… la primera vez descarga unos 25 MB.');
+  try {
+    const data = await ExifT.metadata(p.file || await p.handle.getFile());
+    if (state.current !== p) return;
+    // "System" describe la copia temporal dentro del navegador, no el archivo original
+    const rows = Object.entries(data).filter(([k]) => k !== 'SourceFile' && !k.startsWith('System:'));
+    $('vAll').replaceChildren(
+      el('p', { className: 'sub', textContent: `${rows.length} datos encontrados` }),
+      el('table', {}, ...rows.map(([k, v]) => el('tr', {},
+        el('td', { textContent: k.replace(':', ' · ') }),
+        el('td', { textContent: String([].concat(v).join(', ')).replace(', use -b option to extract', '') })))));
+  } catch (e) {
+    if (state.current !== p) return;
+    note(e.message);
+    $('vAllBtn').disabled = false;
+  }
 }
 
 // ---------- Ordenar en carpetas ----------
@@ -571,6 +596,7 @@ $('btnCsv').onclick = () => downloadCsv('fotos.csv', [
     p.gps?.[0], p.gps?.[1], p.stars, p.discard ? 'si' : 'no'])
 ]);
 
+$('vAllBtn').onclick = showAllMetadata;
 $('vClose').onclick = () => $('viewer').close();
 $('vPrev').onclick = () => step(-1);
 $('vNext').onclick = () => step(1);

@@ -49,8 +49,17 @@ const Analyze = (() => {
 
   // Imagen para el visor: el archivo mismo, o la vista previa derecha si es RAW
   async function viewable(file, exif) {
-    if (!Raw.is(file.name)) return file;
-    for (const preview of await Raw.previews(file)) {
+    if (!Raw.is(file.name) && await opens(file)) return file;
+    const own = Raw.is(file.name) ? await Raw.previews(file) : [];
+    return await firstViewable(own, exif) || firstViewable(await ExifT.previews(file).catch(() => []), exif);
+  }
+
+  async function opens(source) {
+    try { (await createImageBitmap(source)).close(); return true; } catch { return false; }
+  }
+
+  async function firstViewable(previews, exif) {
+    for (const preview of previews) {
       let bitmap;
       try { bitmap = await createImageBitmap(preview.blob); } catch { continue; }
       const turns = turnsFor(preview, exif);
@@ -110,18 +119,29 @@ const Analyze = (() => {
     if (cached) return cached;
     let exif = await Exif.read(file);
     let img = null, reason = null;
+    const tryPreviews = async previews => {
+      for (const preview of previews) {
+        const result = await image(preview.blob, turnsFor(preview, exif));
+        if (result) return result;
+      }
+      return null;
+    };
     if (Raw.is(file.name)) {
       const previews = await Raw.previews(file);
       // Algunos formatos (Fuji RAF) solo exponen los datos dentro de la vista previa
       if (previews[0] && !exif.dateOriginal) exif = { ...previews[0].exif, ...exif };
-      for (const preview of previews) {
-        img = await image(preview.blob, turnsFor(preview, exif));
-        if (img) break;
-      }
-      if (!img) reason = previews.length ? 'El navegador no pudo abrir las imágenes que trae el RAW' : 'No se encontró una vista previa dentro del RAW';
+      img = await tryPreviews(previews);
     } else {
       img = await image(file);
-      if (!img) reason = 'El navegador no puede abrir este archivo';
+    }
+    // Respaldo: lo que el lector rápido no pudo abrir se le pide a ExifTool
+    if (!img) {
+      try {
+        img = await tryPreviews(await ExifT.previews(file));
+        if (!img) reason = 'Ni el lector propio ni ExifTool encontraron una imagen que el navegador pueda abrir';
+      } catch (e) {
+        reason = `No se pudo usar ExifTool: ${e.message}`;
+      }
     }
     const result = { exif, img, reason };
     // Los fallos no se guardan: pueden ser pasajeros (falta de memoria) y se reintentan al reabrir
